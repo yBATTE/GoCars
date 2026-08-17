@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -19,10 +20,80 @@ type PageProps = {
   }>;
 };
 
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    const { vehicle } = await getPublicVehicle(slug);
+
+    const year = vehicle.year ? ` ${vehicle.year}` : "";
+    const title = `${vehicle.name}${year} en venta en Canning`;
+
+    const description = `${vehicle.name}${year} con ${formatPublicKm(
+      vehicle.kms,
+    )}, publicado a ${formatPublicPrice(
+      vehicle.publicPrice,
+      vehicle.currency,
+    )}. Consultá financiación y disponibilidad en GO Cars Canning.`;
+
+    const canonicalUrl = `/vehiculos/${vehicle.id}`;
+    const imageUrl = vehicle.coverImage?.url;
+
+    return {
+      title,
+      description,
+
+      alternates: {
+        canonical: canonicalUrl,
+      },
+
+      openGraph: {
+        title,
+        description,
+        url: canonicalUrl,
+        type: "website",
+        locale: "es_AR",
+        siteName: "GO Cars Canning",
+        images: imageUrl
+          ? [
+              {
+                url: imageUrl,
+                alt: `${vehicle.name}${year}`,
+              },
+            ]
+          : undefined,
+      },
+
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: imageUrl ? [imageUrl] : undefined,
+      },
+
+      robots: {
+        index: true,
+        follow: true,
+      },
+    };
+  } catch {
+    return {
+      title: "Vehículo no encontrado | GO Cars Canning",
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+}
+
 export default async function VehicleDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   let payload;
+
   try {
     payload = await getPublicVehicle(slug);
   } catch {
@@ -38,7 +109,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
   const vehicleName = vehicle.name;
   const vehicleKm = formatPublicKm(vehicle.kms);
 
-  function buildWhatsappUrl(action: "info" | "financiacion" | "consignacion") {
+  function buildWhatsappUrl(
+    action: "info" | "financiacion" | "consignacion",
+  ) {
     let message = "";
 
     if (action === "info") {
@@ -58,7 +131,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
       message = `Hola ${dealership.name}, vi el ${vehicleName} con ${vehicleKm} publicado en la web y me interesó. También me gustaría consultar para dejar mi auto en consignación o tomarlo en parte de pago.`;
     }
 
-    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+      message,
+    )}`;
   }
 
   const whatsappInfoUrl = buildWhatsappUrl("info");
@@ -73,24 +148,59 @@ export default async function VehicleDetailPage({ params }: PageProps) {
         : [];
 
   const allVehicles = await getPublicVehicles();
+
   const relatedVehicles = allVehicles.vehicles
     .filter((item) => item.id !== vehicle.id)
     .slice(0, 3);
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: `${vehicle.name}${vehicle.year ? ` ${vehicle.year}` : ""}`,
+    description:
+      vehicle.description ||
+      `${vehicle.name} disponible en GO Cars Canning.`,
+    image: gallery.map((image) => image.url),
+    sku: vehicle.id,
+    category: "Vehículo",
+    offers: {
+      "@type": "Offer",
+      url: `https://gocarscanning.com/vehiculos/${vehicle.id}`,
+      priceCurrency: vehicle.currency,
+      price: vehicle.publicPrice,
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/UsedCondition",
+      seller: {
+        "@type": "Organization",
+        name: dealership.name,
+      },
+    },
+  };
+
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
+
       <section className="container mx-auto px-4 py-8 md:py-12">
         <div className="mb-6 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-primary transition-colors">
+          <Link href="/" className="transition-colors hover:text-primary">
             Inicio
           </Link>
+
           <span className="mx-2">/</span>
+
           <Link
             href="/#catalogo"
-            className="hover:text-primary transition-colors"
+            className="transition-colors hover:text-primary"
           >
             Catálogo
           </Link>
+
           <span className="mx-2">/</span>
           <span>{vehicle.name}</span>
         </div>
@@ -101,8 +211,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               {gallery[0] ? (
                 <Image
                   src={gallery[0].url}
-                  alt={vehicle.name}
+                  alt={`${vehicle.name}${
+                    vehicle.year ? ` ${vehicle.year}` : ""
+                  } en venta en Canning`}
                   fill
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="object-cover"
                 />
               ) : (
@@ -114,15 +228,16 @@ export default async function VehicleDetailPage({ params }: PageProps) {
 
             {gallery.length > 1 && (
               <div className="mt-4 grid grid-cols-3 gap-3">
-                {gallery.slice(0, 6).map((img, index) => (
+                {gallery.slice(1, 7).map((img, index) => (
                   <div
                     key={img.publicId || index}
                     className="relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-card"
                   >
                     <Image
                       src={img.url}
-                      alt={`${vehicle.name} ${index + 1}`}
+                      alt={`${vehicle.name} - imagen ${index + 2}`}
                       fill
+                      sizes="(max-width: 768px) 33vw, 16vw"
                       className="object-cover"
                     />
                   </div>
@@ -142,11 +257,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               {dealership.name}
             </p>
 
-            <h1 className="mb-4 text-3xl font-bold font-display md:text-5xl">
+            <h1 className="mb-4 font-display text-3xl font-bold md:text-5xl">
               {vehicle.name}
+              {vehicle.year ? ` ${vehicle.year}` : ""}
             </h1>
 
-            <p className="mb-6 text-3xl font-bold text-primary font-display md:text-4xl">
+            <p className="mb-6 font-display text-3xl font-bold text-primary md:text-4xl">
               {formatPublicPrice(vehicle.publicPrice, vehicle.currency)}
             </p>
 
@@ -162,7 +278,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             <div className="mb-8 space-y-3">
               <Button
                 asChild
-                className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white"
+                className="w-full bg-[#25D366] text-white hover:bg-[#128C7E]"
               >
                 <a
                   href={whatsappInfoUrl}
@@ -196,9 +312,13 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="mb-3 text-xl font-semibold">Descripción</h2>
+              <h2 className="mb-3 text-xl font-semibold">
+                Descripción del vehículo
+              </h2>
+
               <p className="leading-7 text-muted-foreground">
-                {vehicle.description || "Sin descripción disponible."}
+                {vehicle.description ||
+                  "Consultanos para conocer más detalles, equipamiento y condiciones de financiación de este vehículo."}
               </p>
             </div>
           </div>
@@ -208,7 +328,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
       {relatedVehicles.length > 0 && (
         <section className="container mx-auto px-4 pb-12 md:pb-16">
           <div className="mb-6">
-            <h2 className="text-2xl font-bold font-display md:text-3xl">
+            <h2 className="font-display text-2xl font-bold md:text-3xl">
               Vehículos relacionados
             </h2>
           </div>
@@ -224,8 +344,11 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                   {item.coverImage ? (
                     <Image
                       src={item.coverImage.url}
-                      alt={item.name}
+                      alt={`${item.name}${
+                        item.year ? ` ${item.year}` : ""
+                      } en venta en Canning`}
                       fill
+                      sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
@@ -239,7 +362,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                   <p className="mb-1 text-sm uppercase text-muted-foreground">
                     {dealership.name}
                   </p>
-                  <h3 className="mb-2 text-lg font-semibold">{item.name}</h3>
+
+                  <h3 className="mb-2 text-lg font-semibold">
+                    {item.name}
+                    {item.year ? ` ${item.year}` : ""}
+                  </h3>
+
                   <p className="font-bold text-primary">
                     {formatPublicPrice(item.publicPrice, item.currency)}
                   </p>
@@ -259,6 +387,7 @@ function Spec({ label, value }: { label: string; value: string }) {
       <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
+
       <p className="font-semibold">{value}</p>
     </div>
   );
