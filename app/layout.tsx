@@ -30,6 +30,12 @@ export const metadata: Metadata = {
     canonical: "/",
   },
 
+  icons: {
+    icon: "/favicon.jpg",
+    shortcut: "/favicon.jpg",
+    apple: "/favicon.jpg",
+  },
+
   openGraph: {
     title: "GO Cars Canning | Vehículos 0 km y usados",
     description:
