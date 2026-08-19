@@ -19,7 +19,7 @@ interface VehicleModalProps {
   onClose: () => void;
 }
 
-const WHATSAPP_NUMBER = "5491112345678";
+const WHATSAPP_NUMBER = "5491168058254";
 
 export function VehicleModal({ vehicle, isOpen, onClose }: VehicleModalProps) {
   if (!vehicle) return null;

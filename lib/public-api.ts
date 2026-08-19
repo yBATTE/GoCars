@@ -95,7 +95,7 @@ export const DEALERSHIP_SLUG =
   process.env.NEXT_PUBLIC_DEALERSHIP_SLUG || "go-cars";
 
 export const WHATSAPP_NUMBER =
-  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5491112345678";
+  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5491168058254";
 
 export const INSTAGRAM_URL =
   process.env.NEXT_PUBLIC_INSTAGRAM_URL ||
